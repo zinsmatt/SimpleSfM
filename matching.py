@@ -1,8 +1,13 @@
 import bisect
+import logging
+import os
 from typing import Tuple, Dict, Any, List, Optional
 import cv2
-
+import numpy as np
 from dataset import DataSet
+
+logger = logging.getLogger(__name__)
+
 
 def match_images(
     dataset: DataSet, config: Dict[str, Any],
@@ -31,7 +36,29 @@ def match_images_pairs(dataset: DataSet, pairs: List[Tuple]):
         cam2 = dataset.get_camera(im2)
         flann1 = dataset.get_flann_index
         m = match_flann(dataset, im1, im2)
-        matches[im1, im2] = m
+
+        logging.debug("matching image {} with {}: found {} matches".format(
+            os.path.basename(dataset.image_files[im1]),
+            os.path.basename(dataset.image_files[im2]),
+            len(m))
+        )
+
+        # Robust matching
+        if len(m) < 8:
+            continue
+        m = np.array(m)
+
+        pts1 = kps1[m[:, 0], :2]
+        pts2 = kps2[m[:, 1], :2]
+
+        threshold = 5.0 #config["robust_matching_threshold"]
+        F, mask = cv2.findFundamentalMat(pts1, pts2, cv2.FM_RANSAC, threshold, 0.9999)
+        inliers = mask.ravel().nonzero()[0]
+        matches[im1, im2] = m[inliers, :]
+        logging.debug("fundamental-based filtering: remainging matches {}".format(
+            len(inliers)
+        ))
+
     return matches
 
 

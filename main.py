@@ -60,10 +60,8 @@ for i in range(dataset.nb_images):
 # print(res)
 
 matches = matching.match_images(dataset, {}, list(range(dataset.nb_images)), list(range(dataset.nb_images)))
-print(matches)
 
 for (i, j), m in matches.items():
-    print(i, j, len(m))
     pts_i, _ = dataset.get_features(i)
     pts_j, _ = dataset.get_features(j)
     img_i = dataset.load_image(i)
@@ -71,7 +69,8 @@ for (i, j), m in matches.items():
 
     kps_i = [cv2.KeyPoint(x=p[0], y=p[1], _size=p[2]) for p in pts_i]
     kps_j = [cv2.KeyPoint(x=p[0], y=p[1], _size=p[2]) for p in pts_j]
-    dmatches = [cv2.DMatch(_imgIdx=0, _queryIdx=a, _trainIdx=b, _distance=0) for a,b in m]
+
+    dmatches = [cv2.DMatch(_imgIdx=0, _queryIdx=a, _trainIdx=b, _distance=0) for a,b in m.tolist()]
     img_match = cv2.drawMatches(img_i, kps_i, img_j, kps_j, dmatches, None, flags=2)
     cv2.imshow("match", img_match)
     cv2.waitKey()
