@@ -31,7 +31,7 @@ def extract_features_sift(
             break
 
     points, desc = descriptor.compute(image, points)
-    points = np.vstack([[p.pt[0], p.pt[1], p.size, p.angle] for p in points])
+    points = np.array([[p.pt[0], p.pt[1], p.size, p.angle] for p in points])
 
     return points, desc
 
