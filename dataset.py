@@ -31,7 +31,7 @@ class DataSet():
     def load_images_list(self):
         with open(self._images_list_file(), "r") as fin:
             lines = fin.readlines()
-        self.image_files = [l.strip() for l in lines[:50:5]]
+        self.image_files = [l.strip() for l in lines[:100:3]]
 
     def load_image(self, idx):
         if idx >= 0 and idx < self.nb_images:

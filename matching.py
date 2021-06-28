@@ -15,8 +15,9 @@ def match_images(
     ):
     dataset.build_flann_index()
     selections = select_candidates_from_sequence(
-        ref_images, cand_images, 5, 10
+        ref_images, cand_images, 1, 7
     )
+
 
     pairs = []
     for k, indices in selections.items():
@@ -113,5 +114,6 @@ def select_candidates_from_sequence(ref_images, cand_images, min_interval, max_i
         if left != -1 and right != -1 and left <= right:
             selection.extend(sorted_cand[left:right+1])
         selections[i] = selection
+        logger.debug("Found selection for image {}: {}".format(i, selections[i]))
 
     return selections
