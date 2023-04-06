@@ -16,8 +16,85 @@ struct ImageDescriptor
     }
     cv::Mat descriptors;
     std::vector<cv::KeyPoint> keypoints;
+
+    std::string serialize() const {
+        stringstream ss;
+        ss << keypoints.size() << "\n";
+        for (auto& kp : keypoints) {
+            ss << kp.pt.x << " " << kp.pt.y << " " << kp.size << "\n";
+        }
+        ss << descriptors.cols << "\n";
+        for (int i = 0; i < descriptors.rows; ++i) {
+            for (int j = 0; j < descriptors.cols; ++j) {
+                ss << static_cast<int>(descriptors.at<uint8_t>(i, j)) << " ";
+            }
+            ss << "\n";
+        }
+        return ss.str();
+    }
+
+    static Ptr deserialize(const std::string& serial) {
+        auto obj = std::make_shared<ImageDescriptor>();
+        std::istringstream iss(serial);
+        int n;
+        iss >> n;
+        for (int i = 0; i < n; ++i) {
+            float x, y, s;
+            iss >> x >> y >> s;
+            obj->keypoints.push_back(cv::KeyPoint(x, y, s));
+        }
+        int m;
+        iss >> m;
+        obj->descriptors.create(n, m, CV_8U);
+        int c;
+        for (int i = 0; i < n; ++i) {
+            for (int j = 0; j < m; ++j) {
+                iss >> c;
+                obj->descriptors.at<uint8_t>(i, j) = static_cast<uint8_t>(c);
+            }
+        }
+
+        return obj;
+    }
+
 };
 
+
+void saveImageDescriptors(const std::string filename, const std::vector<ImageDescriptor::Ptr>& descriptors) {
+    std::ofstream of(filename);
+    of << descriptors.size() << "\n";
+    for (auto desc : descriptors) {
+        of << desc->serialize();
+        of << "eol\n";
+    }
+    of.close();
+}
+
+bool loadImageDescriptors(const std::string filename, std::vector<ImageDescriptor::Ptr>& out_descriptors) {
+    std::ifstream fin(filename);
+    if (!fin.is_open())
+        return false;
+    
+    std::string line;
+    int n;
+    fin >> n;
+    std::getline(fin, line);
+    int count = 0;
+    for (int i = 0; i < n; ++i) {
+        std::stringstream ss;
+        while (std::getline(fin, line)) {
+            if (line == "eol")
+                break;
+            ss << line << "\n";
+        }
+        out_descriptors.push_back(ImageDescriptor::deserialize(ss.str()));
+        ++count;
+    }
+    fin.close();
+
+    std::cout << "Loaded " << count << " new image descriptors.\n";
+    return true;
+}
 
 
 ImageDescriptor::Ptr computeImageDescriptors(cv::Mat img) {
@@ -111,19 +188,52 @@ int main() {
         cv::Mat img_init = cv::imread(name);
         cv::Mat img;
         cv::resize(img_init, img, cv::Size(img_init.size().width * 0.3, img_init.size().height * 0.3));
-
-
-        auto desc = computeImageDescriptors(img);
-        imageDescriptors.push_back(desc);
         images.push_back(img);
-        std::cout << desc->keypoints.size() << " poins detected\n";
 
-        cv::Mat img_keypoints;
-        cv::drawKeypoints(img, desc->keypoints, img_keypoints);
-        cv::imshow("keypoints", img_keypoints);
-        cv::waitKey();
+
+        // auto desc = computeImageDescriptors(img);
+        // std::cout << desc->descriptors.type() << "\n";
+        // imageDescriptors.push_back(desc);
+        // std::cout << desc->keypoints.size() << " poins detected\n";
+
+        // cv::Mat img_keypoints;
+        // cv::drawKeypoints(img, desc->keypoints, img_keypoints);
+        // cv::imshow("keypoints", img_keypoints);
+        // cv::waitKey();
     }
 
+    // saveImageDescriptors("image_descriptors.txt", imageDescriptors);
+
+    loadImageDescriptors("image_descriptors.txt", imageDescriptors);
+
+    for (int i = 0; i < imageDescriptors.size(); ++i) {
+        auto d = imageDescriptors[i];
+        auto d2 = imageDescriptors[i];
+        std::cout << d->keypoints.size() << "\n";
+        std::cout << d2->keypoints.size() << "\n";
+
+        for (int j = 0; j < d->keypoints.size(); ++j) {
+            auto kp = d->keypoints[j];
+            auto kp2 = d2->keypoints[j];
+            if (std::abs(kp.pt.x - kp2.pt.x) > 1.0e-3 ||
+                std::abs(kp.pt.y - kp2.pt.y) > 1.0e-3 ||
+                std::abs(kp.size - kp2.size) > 1.0e-3)
+                std::cout << "ERROR keypoints\n";
+        }
+
+
+        std::cout << d->descriptors.size << "\n";
+        std::cout << d2->descriptors.size << "\n";
+        for (int ii = 0; ii < d->descriptors.rows; ++ii) {
+            for (int j = 0; j < d->descriptors.cols; ++j) {
+                auto a = d->descriptors.at<uint8_t>(ii, j);
+                auto a2 = d2->descriptors.at<uint8_t>(ii, j);
+                if (a != a2)
+                    std::cout << ii << " " << j <<  " : ERROR descriptor\n";
+            }
+        }
+
+    }
 
     for (int i = 0; i <= 7; ++i)
     {
@@ -139,6 +249,11 @@ int main() {
         cv::imshow("matches", img_matches);
         cv::waitKey();
     }
+
+
+
+
+    
 
     return 0;
 }
