@@ -4,176 +4,15 @@
 #include <opencv2/features2d.hpp>
 
 #include <memory>
+#include <Eigen/Dense>
 
+#include "features2d.h"
+#include "io.h"
+#include "matching.h"
 
 using namespace std;
 
-struct ImageDescriptor
-{
-    typedef std::shared_ptr<ImageDescriptor> Ptr;
-    static Ptr create() {
-        return std::make_shared<ImageDescriptor>();
-    }
-    cv::Mat descriptors;
-    std::vector<cv::KeyPoint> keypoints;
 
-    std::string serialize() const {
-        stringstream ss;
-        ss << keypoints.size() << "\n";
-        for (auto& kp : keypoints) {
-            ss << kp.pt.x << " " << kp.pt.y << " " << kp.size << "\n";
-        }
-        ss << descriptors.cols << "\n";
-        for (int i = 0; i < descriptors.rows; ++i) {
-            for (int j = 0; j < descriptors.cols; ++j) {
-                ss << static_cast<int>(descriptors.at<uint8_t>(i, j)) << " ";
-            }
-            ss << "\n";
-        }
-        return ss.str();
-    }
-
-    static Ptr deserialize(const std::string& serial) {
-        auto obj = std::make_shared<ImageDescriptor>();
-        std::istringstream iss(serial);
-        int n;
-        iss >> n;
-        for (int i = 0; i < n; ++i) {
-            float x, y, s;
-            iss >> x >> y >> s;
-            obj->keypoints.push_back(cv::KeyPoint(x, y, s));
-        }
-        int m;
-        iss >> m;
-        obj->descriptors.create(n, m, CV_8U);
-        int c;
-        for (int i = 0; i < n; ++i) {
-            for (int j = 0; j < m; ++j) {
-                iss >> c;
-                obj->descriptors.at<uint8_t>(i, j) = static_cast<uint8_t>(c);
-            }
-        }
-
-        return obj;
-    }
-
-};
-
-
-void saveImageDescriptors(const std::string filename, const std::vector<ImageDescriptor::Ptr>& descriptors) {
-    std::ofstream of(filename);
-    of << descriptors.size() << "\n";
-    for (auto desc : descriptors) {
-        of << desc->serialize();
-        of << "eol\n";
-    }
-    of.close();
-}
-
-bool loadImageDescriptors(const std::string filename, std::vector<ImageDescriptor::Ptr>& out_descriptors) {
-    std::ifstream fin(filename);
-    if (!fin.is_open())
-        return false;
-    
-    std::string line;
-    int n;
-    fin >> n;
-    std::getline(fin, line);
-    int count = 0;
-    for (int i = 0; i < n; ++i) {
-        std::stringstream ss;
-        while (std::getline(fin, line)) {
-            if (line == "eol")
-                break;
-            ss << line << "\n";
-        }
-        out_descriptors.push_back(ImageDescriptor::deserialize(ss.str()));
-        ++count;
-    }
-    fin.close();
-
-    std::cout << "Loaded " << count << " new image descriptors.\n";
-    return true;
-}
-
-
-ImageDescriptor::Ptr computeImageDescriptors(cv::Mat img) {
-    ImageDescriptor::Ptr desc = ImageDescriptor::create();
-    double nKeypoints = 2000;
-    double scaleFactor = 1.5;
-    cv::Ptr<cv::ORB> detector = cv::ORB::create(nKeypoints, scaleFactor);
-    detector->detectAndCompute(img, cv::Mat(), desc->keypoints, desc->descriptors);
-    return desc;
-
-}
-
-
-class RobustMatcher
-{
-    double ratiotest_;
-
-    void ratioTest(std::vector<std::vector<cv::DMatch>> &matches) {
-        for (int i = 0; i < matches.size(); ++i) {
-            if (matches[i].size() > 1) {
-                if (matches[i][0].distance > matches[i][1].distance * ratiotest_) {
-                    matches[i].clear();
-                }
-
-            } else {
-                matches[i].clear();
-            }
-        }
-    }
-
-    void symmetryTest(const std::vector<std::vector<cv::DMatch>>& matches12, 
-                      const std::vector<std::vector<cv::DMatch>>& matches21,
-                      std::vector<cv::DMatch>& symMatches)
-    {
-        for (int i = 0; i < matches12.size(); ++i) {
-            if (matches12[i].size() < 2)
-                continue;
-
-            for (int j = 0; j < matches21.size(); ++j) {
-                if (matches21[j].size() < 2)
-                    continue;
-                
-                if (matches12[i][0].trainIdx == matches21[j][0].queryIdx &&
-                    matches12[i][0].queryIdx == matches21[j][0].trainIdx)
-                    {
-                        symMatches.push_back(matches12[i][0]);
-                        break;
-                    }
-            }
-        }
-    }
-
-
-public:
-
-    RobustMatcher(double ratiotest) : ratiotest_(ratiotest) {}
-
-
-    std::vector<cv::DMatch> robustMatch(ImageDescriptor::Ptr desc1, ImageDescriptor::Ptr desc2)
-    {
-        std::vector<std::vector<cv::DMatch>> matches12, matches21;
-        cv::BFMatcher matcher(cv::NORM_HAMMING, false);
-
-        matcher.knnMatch(desc1->descriptors, desc2->descriptors, matches12, 2);
-        matcher.knnMatch(desc2->descriptors, desc1->descriptors, matches21, 2);
-
-        ratioTest(matches12);
-        std::cout << matches12.size() << " matches after ratio test.\n";
-
-        ratioTest(matches21);
-        std::cout << matches21.size() << " matches after ratio test.\n";
-
-        
-        std::vector<cv::DMatch> good_matches;
-        symmetryTest(matches12, matches21, good_matches);
-        std::cout << good_matches.size() << " good symmetric matches.\n";
-        return good_matches;
-    }
-};
 
 
 int main() {
@@ -251,9 +90,18 @@ int main() {
     }
 
 
+    Eigen::Matrix3d K;
+    K << 2759.48, 0.0, 1520.69,
+         0.0, 2764.16, 1006.81,
+         0.0, 0.0, 1.0;
 
 
-    
+
+
+
+
+
+
 
     return 0;
 }

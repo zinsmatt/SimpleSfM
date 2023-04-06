@@ -16,6 +16,9 @@ include_directories(
 
 add_executable(${PROJECT_NAME}
 main.cxx
+features2d.cxx
+io.cxx
+matching.cxx
 )
 
 target_link_libraries(${PROJECT_NAME}
