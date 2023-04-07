@@ -19,6 +19,7 @@ main.cxx
 features2d.cxx
 io.cxx
 matching.cxx
+triangulation.cxx
 )
 
 target_link_libraries(${PROJECT_NAME}

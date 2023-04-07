@@ -44,11 +44,24 @@ ImageDescriptor::Ptr ImageDescriptor::deserialize(const std::string& serial)
     return obj;
 }
 
-ImageDescriptor::Ptr computeImageDescriptors(cv::Mat img) {
+ImageDescriptor::Ptr computeImageDescriptors(cv::Mat img, int nKps) {
     ImageDescriptor::Ptr desc = ImageDescriptor::create();
-    double nKeypoints = 2000;
     double scaleFactor = 1.5;
-    cv::Ptr<cv::ORB> detector = cv::ORB::create(nKeypoints, scaleFactor);
+    cv::Ptr<cv::ORB> detector = cv::ORB::create(nKps, scaleFactor);
     detector->detectAndCompute(img, cv::Mat(), desc->keypoints, desc->descriptors);
     return desc;
+}
+
+void ImageDescriptor::computeNormalizedKeypoints(const Eigen::Matrix3d& K) {
+    keypoints_norm.clear();
+    keypoints_norm.resize(keypoints.size());
+    double fx = K(0, 0);
+    double fy = K(1, 1);
+    double cx = K(0, 2);
+    double cy = K(1, 2);
+    for (int i = 0; i < keypoints.size(); ++i) {
+        keypoints_norm[i][0] = (keypoints[i].pt.x - cx) / fx;
+        keypoints_norm[i][1] = (keypoints[i].pt.y - cy) / fy;
+        keypoints_norm[i][2] = 1.0;
+    }
 }
