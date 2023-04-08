@@ -1,5 +1,8 @@
 #include "features2d.h"
 
+#include <opencv2/features2d.hpp>
+#include <opencv2/xfeatures2d.hpp>
+
 
 
  std::string ImageDescriptor::serialize() const
@@ -47,8 +50,10 @@ ImageDescriptor::Ptr ImageDescriptor::deserialize(const std::string& serial)
 ImageDescriptor::Ptr computeImageDescriptors(cv::Mat img, int nKps) {
     ImageDescriptor::Ptr desc = ImageDescriptor::create();
     double scaleFactor = 1.5;
-    cv::Ptr<cv::ORB> detector = cv::ORB::create(nKps, scaleFactor);
+    // cv::Ptr<cv::ORB> detector = cv::ORB::create(nKps, scaleFactor);
+    cv::Ptr<cv::xfeatures2d::SURF> detector = cv::xfeatures2d::SURF::create();
     detector->detectAndCompute(img, cv::Mat(), desc->keypoints, desc->descriptors);
+
     return desc;
 }
 

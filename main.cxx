@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/features2d.hpp>
@@ -14,6 +15,65 @@
 using namespace std;
 
 
+template <class T, int R, int C>
+Eigen::Matrix<T, R, C> cv2eigen(cv::Mat M) {
+    Eigen::Matrix<T, R, C> m;
+    for (int i = 0; i < R; ++i)
+        for (int j = 0; j < C; ++j)
+            m(i, j) = M.at<T>(i, j);
+    return m;
+}
+
+template <class T, int R, int C>
+cv::Mat eigen2cv(Eigen::Matrix<T, R, C>& M) {
+    cv::Mat m(R, C, CV_64F);
+    for (int i = 0; i < R; ++i)
+        for (int j = 0; j < C; ++j)
+            m.at<double>(i, j) = M(i, j);
+    return m;
+}
+
+
+
+std::string serializeTriaxeOBJ(const Eigen::Matrix3d &orientation, const Eigen::Vector3d &position, double size=1.0, double nPoints=100)
+{
+    Eigen::Matrix<double, 3, Eigen::Dynamic> pts = Eigen::Matrix<double, 3, Eigen::Dynamic>::Zero(3, 3*nPoints);
+    double step = size / nPoints;
+    for (int i = 0; i < nPoints; ++i) {
+        pts(0, i) = i * step;
+        pts(1, nPoints+i) = i * step;
+        pts(2, 2*nPoints+i) = i * step;
+    }
+
+    auto triaxe = (orientation * pts).colwise() + position;
+    
+    std::stringstream ss;
+    for (int i = 0; i < 3 * nPoints; ++i) {
+        ss << "v " << triaxe(0, i) << " " << triaxe(1, i) << " " << triaxe(2, i);
+        int color[3] = {0, 0, 0};
+        if (i < nPoints) {
+            color[0] = 255;
+        } else if (i < 2*nPoints) {
+            color[1] = 255;
+        } else {
+            color[2] = 255;
+        }
+        ss << " " << color[0] << " " << color[1] << " " << color[2];
+        ss << "\n";
+    }
+    return ss.str();
+}
+
+
+void writeTriaxeOBJ(const std::string& filename, const std::vector<Eigen::Matrix3d> &orientations, const std::vector<Eigen::Vector3d> &positions, double size=1.0, double nPoints=100)
+{
+    std::ofstream fout(filename);
+    for (int i = 0; i < orientations.size(); ++i) {
+        fout << serializeTriaxeOBJ(orientations[i], positions[i], size, nPoints);
+    }
+    fout.close();
+}
+
 void writeOBJ(const std::string& filename, const std::vector<Eigen::Vector3d>& points) {
     std::ofstream fout(filename);
     for (auto& p : points) {
@@ -23,7 +83,7 @@ void writeOBJ(const std::string& filename, const std::vector<Eigen::Vector3d>& p
 }
 
 Eigen::Matrix3d computeEssentialMatrix(ImageDescriptor::Ptr desc1, ImageDescriptor::Ptr desc2,
-                                       const std::vector<cv::DMatch>& matches, const Eigen::Matrix3d& K) {
+                                       std::vector<cv::DMatch>& matches, const Eigen::Matrix3d& K) {
 
     std::vector<cv::Point2d> pts1, pts2;
     for (int i = 0; i < matches.size(); ++i) {
@@ -37,12 +97,17 @@ Eigen::Matrix3d computeEssentialMatrix(ImageDescriptor::Ptr desc1, ImageDescript
     for (int i = 0; i < 3; ++i)
     for (int j = 0; j < 3; ++j)
     KK.at<double>(i, j) = K(i, j);
+    cv::Mat mask;
+    cv::Mat EE = cv::findEssentialMat(pts1, pts2, KK, cv::RANSAC, 0.9999, 1.0, 10000, mask); //, cv::LMEDS);
+    // std::cout << "mask E\n" << mask << "\n";
 
-    cv::Mat EE = cv::findEssentialMat(pts1, pts2, KK, cv::RANSAC, 0.9999, 1.0); //, cv::LMEDS);
 
-
-
-
+    std::vector<cv::DMatch> filtered_matches;
+    for (int i = 0; i < matches.size(); ++i) {
+        if (mask.at<uchar>(i, 0))
+            filtered_matches.push_back(matches[i]);
+    }
+    matches = filtered_matches;
 
     Eigen::Matrix3d EEE;
     for (int i = 0; i < 3; ++i)
@@ -175,39 +240,40 @@ Eigen::Matrix<double, 3, 4>
 
     std::cout << "\n" << KK << "\n";
 
-    cv::Mat RR, tt;
-    cv::Mat tri_points;
-    cv::Mat mask(cv::Size2i(1, pts1.size()), CV_8U, 1);
-    cv::recoverPose(EE, pts1, pts2, KK, RR, tt, 0.01, cv::noArray(), tri_points);
-    std::cout << "Mask : \n";
-    std::cout << mask << "\n\n";
+    // cv::Mat RR, tt;
+    // cv::Mat tri_points;
+    // cv::Mat mask(cv::Size2i(1, pts1.size()), CV_8U, 1);
+    // cv::recoverPose(EE, pts1, pts2, KK, RR, tt, 1000, cv::noArray(), tri_points);
+    // // std::cout << "Mask : \n";
+    // // std::cout << mask << "\n\n";
 
-    for (int i = 0; i < tri_points.cols; ++i) {
-        if (mask.at<uchar>(i, 0) == 0)
-            continue;
-        Eigen::Vector3d v(tri_points.at<double>(0, i), 
-                          tri_points.at<double>(1, i), 
-                          tri_points.at<double>(2, i));
-        v /= tri_points.at<double>(3, i);
-        std::cout << v.transpose() << "\n";
-        triangulatedPoints.push_back(v);
-    }
+    // for (int i = 0; i < tri_points.cols; ++i) {
+    //     if (mask.at<uchar>(i, 0) == 0)
+    //         continue;
+    //     Eigen::Vector3d v(tri_points.at<double>(0, i), 
+    //                       tri_points.at<double>(1, i), 
+    //                       tri_points.at<double>(2, i));
+    //     v /= tri_points.at<double>(3, i);
+    //     // std::cout << v.transpose() << "\n";
+    //     triangulatedPoints.push_back(v);
+    // }
 
-    Eigen::Vector3d ttt(tt.at<double>(0, 0), tt.at<double>(1, 0), tt.at<double>(2, 0));
-    ttt.normalize();
-    Eigen::Matrix3d RRR;
-    for (int i = 0; i < 3; ++i)
-    for (int j = 0; j < 3; ++j)
-    RRR(i, j) = RR.at<double>(i, j);
+    // Eigen::Vector3d ttt(tt.at<double>(0, 0), tt.at<double>(1, 0), tt.at<double>(2, 0));
+    // ttt.normalize();
+    // Eigen::Matrix3d RRR;
+    // for (int i = 0; i < 3; ++i)
+    // for (int j = 0; j < 3; ++j)
+    // RRR(i, j) = RR.at<double>(i, j);
+    // std::cout << "determinant de R = " << RRR.determinant() << "\n";
 
-    std::cout << "=========================\n";
-    std::cout << "ttt = " << ttt.transpose() << "\n";
-    std::cout << "RRR = " << RRR << "\n";
-    std::cout << "=========================\n";
-    Eigen::Matrix<double, 3, 4> res;
-    res.block<3, 3>(0, 0) = RRR;
-    res.col(3) = ttt;
-    return res;
+    // std::cout << "=========================\n";
+    // std::cout << "ttt = " << ttt.transpose() << "\n";
+    // std::cout << "RRR = " << RRR << "\n";
+    // std::cout << "=========================\n";
+    // Eigen::Matrix<double, 3, 4> res;
+    // res.block<3, 3>(0, 0) = RRR;
+    // res.col(3) = ttt;
+    // return res;
 
 
     
@@ -268,8 +334,6 @@ Eigen::Matrix<double, 3, 4>
         Eigen::Matrix<double, 3, 4> Rt2;
         Rt2.block<3, 3>(0, 0) = possible_Rs[i];
         Rt2.col(3) = possible_ts[i];
-        Rt2.block<3, 3>(0, 0) = RRR;
-        Rt2.col(3) = ttt;
 
         Eigen::Matrix<double, 3, 4> P1 = K * Rt1;
         Eigen::Matrix<double, 3, 4> P2 = K * Rt2;
@@ -279,10 +343,11 @@ Eigen::Matrix<double, 3, 4>
         for (auto &m : matches) {
             auto tmp1 = desc1->keypoints[m.queryIdx].pt;
             Eigen::Vector2d p1(tmp1.x, tmp1.y);
-            auto tmp2 = desc1->keypoints[m.trainIdx].pt;
+            auto tmp2 = desc2->keypoints[m.trainIdx].pt;
             Eigen::Vector2d p2(tmp2.x, tmp2.y);
 
             Eigen::Vector3d X = triangulatePoint(p1, P1, p2, P2);
+
 
             if ((Rt1 * X.homogeneous()).z() > 0 &&
                 (Rt2 * X.homogeneous()).z() > 0)
@@ -315,8 +380,8 @@ Eigen::Matrix<double, 3, 4>
     std::cout <<   possible_Rs[best_solution_idx] << "\n";
 
 
-    Rt.block<3 ,3>(0, 0) = RRR;
-    Rt.col(3) = ttt;
+    // Rt.block<3 ,3>(0, 0) = RRR;
+    // Rt.col(3) = ttt;
 
     return Rt;    
 }
@@ -324,11 +389,14 @@ Eigen::Matrix<double, 3, 4>
 
 int main() {
     // double SCALING = 0.3;
-    double SCALING = 1;
+    // double SCALING = 0.3;
+    double SCALING = 0.5;
     std::vector<cv::Mat> images;
     std::vector<ImageDescriptor::Ptr> imageDescriptors;
 
-    std::vector<std::string> filenames = {"../data/MI9T/video_05/frame_000175.png", "../data/MI9T/video_05/frame_000200.png"};
+    std::vector<std::string> filenames = {"../data/fountain/0004.png", "../data/fountain/0005.png"};
+    // std::vector<std::string> filenames = {"../data/MI9T/video_01/frame_000001.png", "../data/MI9T/video_01/frame_000050.png"};
+    // std::vector<std::string> filenames = {"../data/room/images/frame_000490.png", "../data/room/images/frame_000510.png"};
 
     for (int i = 0; i < filenames.size(); ++i) {
         // char buffer[1024];
@@ -377,18 +445,18 @@ int main() {
 
 
     Eigen::Matrix3d K;
-    // K << 2759.48 * SCALING, 0.0, 1520.69 * SCALING,
-    //      0.0, 2764.16 * SCALING, 1006.81 * SCALING,
-    //      0.0, 0.0, 1.0;
+    K << 2759.48 * SCALING, 0.0, 1520.69 * SCALING,
+         0.0, 2764.16 * SCALING, 1006.81 * SCALING,
+         0.0, 0.0, 1.0;
 
     // K << 565.077 * SCALING, 0.0, 320 * SCALING,
     //      0.0, 565.077 * SCALING, 180 * SCALING,
     //      0.0, 0.0, 1.0;
 
 
-    K << 765.077 * SCALING, 0.0, 320 * SCALING,
-         0.0, 765.077 * SCALING, 180 * SCALING,
-         0.0, 0.0, 1.0;
+    // K << 565.077, 0.0, 320,
+    //      0.0, 565.077, 180,
+    //      0.0, 0.0, 1.0;
 
     for (auto desc : imageDescriptors) {
         desc->computeNormalizedKeypoints(K);
@@ -402,6 +470,104 @@ int main() {
     auto Rt = computeRtFromEssential(E, imageDescriptors[idx], imageDescriptors[idx+1], list_matches[idx], K, triangulated_points);
 
 
+
+    std::cout << "comouteRtFromEssential: \n" << Rt << "\n";
+
+    cv::Mat EE(3, 3, CV_64F), RR1, RR2, tt;
+    for (int i = 0; i < 3; ++i)
+    for (int j = 0; j < 3; ++j)
+    EE.at<double>(i, j) = E(i, j);
+
+    cv::decomposeEssentialMat(EE, RR1, RR2, tt);
+    Eigen::Matrix3d R1, R2;
+    Eigen::Vector3d t;
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            R1(i, j) = RR1.at<double>(i, j);
+            R2(i, j) = RR2.at<double>(i, j);
+        }
+        t[i] = tt.at<double>(i, 0);
+    }
+
+
+
+    std::vector<Eigen::Matrix<double, 3, 4>> solutions;
+    Eigen::Matrix<double, 3, 4> Rt1;
+    Rt1 << R1, t;
+    Eigen::Matrix<double, 3, 4> Rt2;
+    Rt2 << R1, -t;
+    Eigen::Matrix<double, 3, 4> Rt3;
+    Rt3 << R2, t;
+    Eigen::Matrix<double, 3, 4> Rt4;
+    Rt4 << R2, -t;
+
+    // std::cout << "\n decompose E:\n";
+    // std::cout << Rt1 << "\n\n";
+    // std::cout << Rt2 << "\n\n";
+    // std::cout << Rt3 << "\n\n";
+    // std::cout << Rt4 << "\n\n";
+    
+    std::vector<Eigen::Matrix3d> solutions_R = {R1.transpose(), R1.transpose(), R2.transpose(), R2.transpose()};
+    std::vector<Eigen::Vector3d> solutions_t = {-R1.transpose()*t, R1.transpose()*t, -R2.transpose()*t, R2.transpose()*t};
+
+    writeTriaxeOBJ("cameras_solutions.obj", solutions_R, solutions_t, 1.0, 100);
+
+    Eigen::Matrix<double, 3, 4> P1 = K * Rt1;
+    Eigen::Matrix<double, 3, 4> P2 = K * Rt2;
+    Eigen::Matrix<double, 3, 4> P3 = K * Rt3;
+    Eigen::Matrix<double, 3, 4> P4 = K * Rt4;
+
+    Eigen::Matrix<double, 3, 4> P0 = Eigen::Matrix<double, 3, 4>::Zero();
+    P0.block<3, 3>(0, 0) = K;
+
+    std::vector<cv::Point2f> pts1, pts2;
+    std::vector<Eigen::Vector2d> pts_1, pts_2;
+    for (auto &d: list_matches[idx]) {
+        pts1.push_back(imageDescriptors[idx]->keypoints[d.queryIdx].pt);
+        pts2.push_back(imageDescriptors[idx+1]->keypoints[d.trainIdx].pt);
+        auto& tmp1 = imageDescriptors[idx]->keypoints[d.queryIdx].pt;
+        pts_1.push_back(Eigen::Vector2d(tmp1.x, tmp1.y));
+        auto& tmp2 = imageDescriptors[idx+1]->keypoints[d.trainIdx].pt;
+        pts_2.push_back(Eigen::Vector2d(tmp2.x, tmp2.y));
+    }
+
+    std::vector<Eigen::Matrix<double, 3, 4>> Rts = {Rt1, Rt2, Rt3, Rt4};
+    std::vector<Eigen::Matrix<double, 3, 4>> projections = {P1, P2, P3, P4};
+
+
+    int best = 0;
+    std::vector<Eigen::Vector3d> best_points;
+    Eigen::Matrix<double, 3, 4> best_Rt;
+    for (int k = 0; k < 4; ++k) {
+        cv::Mat tri_points;
+        int good = 0;
+        cv::triangulatePoints(eigen2cv<double, 3, 4>(P0), eigen2cv<double, 3, 4>(projections[k]), pts1, pts2, tri_points);
+
+        auto points = triangulatePoints(pts_1, P0, pts_2, projections[k]);
+        // std::cout << "======= tri points 1 =====\n";
+        // std::cout << tri_points1 << "\n";
+        std::vector<Eigen::Vector3d> temp;
+        for (int i = 0; i < tri_points.cols; ++i) {
+            Eigen::Vector3d p(tri_points.at<float>(0, i), tri_points.at<float>(1, i), tri_points.at<float>(2, i));
+            p /= tri_points.at<float>(3, i);
+            Eigen::Vector3d pcam1 = Rts[k] * p.homogeneous();
+            if (p.z() > 0 && pcam1.z() > 0)
+                ++good;
+            temp.push_back(p);
+        }
+
+        if (good > best) {
+            best = good;
+            best_points = points;
+            best_Rt = Rts[k];
+        }
+        // std::cout << "good " << k+1 << " = " << good << "\n";
+        writeOBJ("triangulated_" + std::to_string(k) + ".obj", temp);
+    }
+
+    writeOBJ("best_reconstruction.obj", best_points);
+    
+    std::cout << "Found good :\n" << best_Rt << "\n";
 
 
     std::vector<cv::KeyPoint> proj_pts_1;
@@ -446,5 +612,6 @@ int main() {
     std::cout << std::endl;
 
     writeOBJ("reconstruction.obj", triangulated_points);
+    writeTriaxeOBJ("cameras.obj", {Eigen::Matrix3d::Identity(), Rt.block<3, 3>(0, 0).transpose()}, {Eigen::Vector3d::Zero(), -Rt.block<3, 3>(0, 0).transpose() * Rt.col(3)}, 1.5, 100);
     return 0;
 }

@@ -42,7 +42,8 @@ void RobustMatcher::symmetryTest(const std::vector<std::vector<cv::DMatch>>& mat
 std::vector<cv::DMatch> RobustMatcher::robustMatch(ImageDescriptor::Ptr desc1, ImageDescriptor::Ptr desc2)
 {
     std::vector<std::vector<cv::DMatch>> matches12, matches21;
-    cv::BFMatcher matcher(cv::NORM_HAMMING, false);
+    // cv::BFMatcher matcher(cv::NORM_HAMMING, false);
+    cv::BFMatcher matcher(cv::NORM_L2, false);
 
     matcher.knnMatch(desc1->descriptors, desc2->descriptors, matches12, 2);
     matcher.knnMatch(desc2->descriptors, desc1->descriptors, matches21, 2);

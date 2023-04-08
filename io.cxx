@@ -1,5 +1,7 @@
 #include "io.h"
 
+#include <fstream>
+
 void saveImageDescriptors(const std::string filename, const std::vector<ImageDescriptor::Ptr>& descriptors) {
     std::ofstream of(filename);
     of << descriptors.size() << "\n";

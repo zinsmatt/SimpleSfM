@@ -28,3 +28,14 @@ Eigen::Vector3d triangulatePoint(const Eigen::Vector2d& p1, const Eigen::Matrix<
     return center;
 
 }
+
+
+std::vector<Eigen::Vector3d> triangulatePoints(const std::vector<Eigen::Vector2d>& pts1, const Eigen::Matrix<double, 3, 4>& P1,
+                                               const std::vector<Eigen::Vector2d>& pts2, const Eigen::Matrix<double, 3, 4>& P2)
+{
+    std::vector<Eigen::Vector3d> out(pts1.size());
+    for (int i = 0; i < pts1.size(); ++i) {
+        out[i] = triangulatePoint(pts1[i], P1 ,pts2[i], P2);
+    }
+    return out;
+}
