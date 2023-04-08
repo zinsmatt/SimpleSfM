@@ -16,10 +16,12 @@ include_directories(
 
 add_executable(${PROJECT_NAME}
 main.cxx
+epipolar.cxx
 features2d.cxx
 io.cxx
 matching.cxx
 triangulation.cxx
+utils.cxx
 )
 
 target_link_libraries(${PROJECT_NAME}
