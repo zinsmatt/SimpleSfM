@@ -6,6 +6,7 @@
 
 #include <memory>
 
+class Frame;
 
 struct ImageDescriptor
 {
@@ -27,3 +28,26 @@ struct ImageDescriptor
 
 
 ImageDescriptor::Ptr computeImageDescriptors(cv::Mat img, int nKps=2000);
+
+
+class Feature2d
+{
+    Eigen::Vector2d pos_;
+    Frame* frame_ = nullptr;
+
+
+public:
+    typedef std::shared_ptr<Feature2d> Ptr;
+
+    static Ptr create(const Eigen::Vector2d& p, Frame* frame) {
+        return std::make_shared<Feature2d>(p, frame);
+    }
+
+    Feature2d(const Eigen::Vector2d& p, Frame* frame) :
+        pos_(p), frame_(frame) {}
+
+    Eigen::Vector2d pos() const {
+        return pos_;
+    }
+
+};

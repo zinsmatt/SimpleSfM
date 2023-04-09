@@ -2,22 +2,21 @@
 
 #include "triangulation.h"
 #include "utils.h"
+#include "io.h"
 
 
-Eigen::Matrix3d computeEssentialMatrix(ImageDescriptor::Ptr desc1, ImageDescriptor::Ptr desc2,
+Eigen::Matrix3d computeEssentialMatrix(const std::vector<cv::Point2d>& pts0, const std::vector<cv::Point2d>& pts1,
                                        std::vector<cv::DMatch>& matches, const Eigen::Matrix3d& K)
 {
-
-    std::vector<cv::Point2d> pts1, pts2;
+    std::vector<cv::Point2d> matched_pts0(matches.size());
+    std::vector<cv::Point2d> matched_pts1(matches.size());
     for (int i = 0; i < matches.size(); ++i) {
-        auto uv1 = desc1->keypoints[matches[i].queryIdx];
-        auto uv2 = desc2->keypoints[matches[i].trainIdx];
-        pts1.push_back(uv1.pt);
-        pts2.push_back(uv2.pt);
+        matched_pts0[i] = pts0[matches[i].queryIdx];
+        matched_pts1[i] = pts1[matches[i].trainIdx];
     }
-
+    // Do matching
     cv::Mat mask;
-    cv::Mat Ecv = cv::findEssentialMat(pts1, pts2, eigen2cv<double, 3, 3>(K), cv::RANSAC, 0.9999, 1.0, 1000, mask);
+    cv::Mat Ecv = cv::findEssentialMat(matched_pts0, matched_pts1, eigen2cv<double, 3, 3>(K), cv::RANSAC, 0.9999, 1.0, 1000, mask);
 
     // Filter bad matches
     std::vector<cv::DMatch> filtered_matches;
@@ -31,11 +30,19 @@ Eigen::Matrix3d computeEssentialMatrix(ImageDescriptor::Ptr desc1, ImageDescript
 }
     
 
-Matrix34d computeRtFromEssential(const Eigen::Matrix3d& E, ImageDescriptor::Ptr &desc1,
-                                 ImageDescriptor::Ptr desc2, std::vector<cv::DMatch>& matches,
+Matrix34d computeRtFromEssential(const Eigen::Matrix3d& E, const std::vector<Vector2d>& pts0,
+                                 const std::vector<Vector2d>& pts1, std::vector<cv::DMatch>& matches,
                                  const Eigen::Matrix3d& K, std::vector<Eigen::Vector3d>& triangulatedPoints,
                                  double dmax)
 {
+    std::vector<Vector2d> matched_pts0(matches.size());
+    std::vector<Vector2d> matched_pts1(matches.size());
+    for (int i = 0; i < matches.size(); ++i) {
+        matched_pts0[i] = pts0[matches[i].queryIdx];
+        matched_pts1[i] = pts1[matches[i].trainIdx];
+    }
+
+
     // Find the 4 solutions
     Eigen::JacobiSVD<Eigen::Matrix3d> svdE(E, Eigen::ComputeFullU | Eigen::ComputeFullV);
     Eigen::Matrix3d U = svdE.matrixU();
@@ -56,7 +63,7 @@ Matrix34d computeRtFromEssential(const Eigen::Matrix3d& E, ImageDescriptor::Ptr 
     Eigen::Matrix3d R1 = U * W * Vt;
     Eigen::Matrix3d R2 = U * W.transpose() * Vt;
 
-    std::vector<Eigen::Matrix3d> possible_Rs = {R1, R2, R1, R2};
+    std::vector<Eigen::Matrix3d> possible_Rs = {R1, R1, R2, R2};
     std::vector<Eigen::Vector3d> possible_ts = {t, -t, t, -t};
 
     if (std::abs(R1.determinant()-1.0) > 1.0e-3 || std::abs(R2.determinant()-1.0) > 1.0e-3)
@@ -66,13 +73,6 @@ Matrix34d computeRtFromEssential(const Eigen::Matrix3d& E, ImageDescriptor::Ptr 
     // Chirality check to find the best solution
     int max_count_valid = -1;
     int best_solution_idx = -1;
-
-    std::vector<Eigen::Vector2d> pts0(matches.size());
-    std::vector<Eigen::Vector2d> pts1(matches.size());
-    for (int i = 0; i < matches.size(); ++i) {
-        pts0[i] = cvpoint2eigen(desc1->keypoints[matches[i].queryIdx].pt);
-        pts1[i] = cvpoint2eigen(desc2->keypoints[matches[i].trainIdx].pt);
-    }
 
     Matrix34d P0;
     P0.block<3, 3>(0, 0) = K;
@@ -84,8 +84,8 @@ Matrix34d computeRtFromEssential(const Eigen::Matrix3d& E, ImageDescriptor::Ptr 
 
         int count_valid = 0;
         std::vector<Eigen::Vector3d> tri_points;
-        for (int j = 0; j < pts0.size(); ++j) {
-            Eigen::Vector3d X = triangulatePoint(pts0[j], P0, pts1[j], P1);
+        for (int j = 0; j < matched_pts0.size(); ++j) {
+            Eigen::Vector3d X = triangulatePoint(matched_pts0[j], P0, matched_pts1[j], P1);
 
             double z0 = X.z();
             double z1 = (Rt1 * X.homogeneous()).z();

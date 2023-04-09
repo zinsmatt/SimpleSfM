@@ -2,6 +2,8 @@
 
 #include <opencv2/core.hpp>
 #include "features2d.h"
+#include "frame.h"
+
 
 class RobustMatcher
 {
@@ -17,5 +19,5 @@ public:
 
     RobustMatcher(double ratiotest) : ratiotest_(ratiotest) {}
 
-    std::vector<cv::DMatch> robustMatch(ImageDescriptor::Ptr desc1, ImageDescriptor::Ptr desc2);
+    std::vector<cv::DMatch> robustMatch(Frame::Ptr frame1, Frame::Ptr frame2);
 };

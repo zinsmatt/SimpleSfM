@@ -4,9 +4,16 @@
 #include <opencv2/opencv.hpp>
 
 using Matrix34d = Eigen::Matrix<double, 3, 4>;
+using Matrix3d = Eigen::Matrix3d;
+using Vector3d = Eigen::Vector3d;
+using Vector2d = Eigen::Vector2d;
 
-inline Eigen::Vector2d cvpoint2eigen(const cv::Point2d& pt) {
-    return Eigen::Vector2d(pt.x, pt.y);    
+inline Vector2d cvpoint2eigen(const cv::Point2d& pt) {
+    return Vector2d(pt.x, pt.y);    
+}
+
+inline cv::Point2d eigen2cvpoint(const Vector2d& pt) {
+    return cv::Point2d(pt.x(), pt.y());
 }
 
 

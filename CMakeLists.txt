@@ -16,8 +16,10 @@ include_directories(
 
 add_executable(${PROJECT_NAME}
 main.cxx
+camera.cxx
 epipolar.cxx
 features2d.cxx
+frame.cxx
 io.cxx
 matching.cxx
 triangulation.cxx
