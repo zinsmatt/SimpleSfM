@@ -21,7 +21,9 @@ epipolar.cxx
 features2d.cxx
 frame.cxx
 io.cxx
+map.cxx
 matching.cxx
+point3d.cxx
 triangulation.cxx
 utils.cxx
 )

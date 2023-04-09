@@ -32,7 +32,7 @@ Eigen::Matrix3d computeEssentialMatrix(const std::vector<cv::Point2d>& pts0, con
 
 Matrix34d computeRtFromEssential(const Eigen::Matrix3d& E, const std::vector<Vector2d>& pts0,
                                  const std::vector<Vector2d>& pts1, std::vector<cv::DMatch>& matches,
-                                 const Eigen::Matrix3d& K, std::vector<Eigen::Vector3d>& triangulatedPoints,
+                                 const Eigen::Matrix3d& K, std::vector<Eigen::Vector3d>& triangulated_points,
                                  double dmax)
 {
     std::vector<Vector2d> matched_pts0(matches.size());
@@ -73,6 +73,7 @@ Matrix34d computeRtFromEssential(const Eigen::Matrix3d& E, const std::vector<Vec
     // Chirality check to find the best solution
     int max_count_valid = -1;
     int best_solution_idx = -1;
+    std::vector<int> best_solution_indices;
 
     Matrix34d P0;
     P0.block<3, 3>(0, 0) = K;
@@ -84,12 +85,14 @@ Matrix34d computeRtFromEssential(const Eigen::Matrix3d& E, const std::vector<Vec
 
         int count_valid = 0;
         std::vector<Eigen::Vector3d> tri_points;
+        std::vector<int> good_indices;
         for (int j = 0; j < matched_pts0.size(); ++j) {
             Eigen::Vector3d X = triangulatePoint(matched_pts0[j], P0, matched_pts1[j], P1);
 
             double z0 = X.z();
             double z1 = (Rt1 * X.homogeneous()).z();
             if (z0 > 0 && z0 < dmax && z1 > 0 && z1 < dmax) {
+                good_indices.push_back(j);
                 count_valid++;
                 tri_points.push_back(X);
             }
@@ -98,7 +101,8 @@ Matrix34d computeRtFromEssential(const Eigen::Matrix3d& E, const std::vector<Vec
         if (count_valid > max_count_valid) {
             max_count_valid = count_valid;
             best_solution_idx = i;
-            triangulatedPoints = std::move(tri_points);
+            triangulated_points = std::move(tri_points);
+            best_solution_indices = std::move(good_indices);
         }
     }
 
@@ -107,6 +111,16 @@ Matrix34d computeRtFromEssential(const Eigen::Matrix3d& E, const std::vector<Vec
     Eigen::Matrix<double, 3, 4> Rt;
     Rt.block<3 ,3>(0, 0) = possible_Rs[best_solution_idx];
     Rt.col(3) = possible_ts[best_solution_idx];
+
+
+    // Filter matches
+    std::vector<cv::DMatch> filtered_matches(best_solution_indices.size());
+    int a = 0;
+    for (auto i : best_solution_indices) {
+        filtered_matches[a++] = matches[i];
+    }
+    matches = std::move(filtered_matches);
+
 
     return Rt;    
 }

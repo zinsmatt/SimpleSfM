@@ -7,6 +7,7 @@
 #include <memory>
 
 class Frame;
+class Point3d;
 
 struct ImageDescriptor
 {
@@ -30,11 +31,22 @@ struct ImageDescriptor
 ImageDescriptor::Ptr computeImageDescriptors(cv::Mat img, int nKps=2000);
 
 
+
+
+
+
+
+
+
+
+
+
+
 class Feature2d
 {
     Eigen::Vector2d pos_;
-    Frame* frame_ = nullptr;
-
+    Frame* frame_ref_ = nullptr;
+    Point3d* point_ref_ = nullptr;
 
 public:
     typedef std::shared_ptr<Feature2d> Ptr;
@@ -44,10 +56,18 @@ public:
     }
 
     Feature2d(const Eigen::Vector2d& p, Frame* frame) :
-        pos_(p), frame_(frame) {}
+        pos_(p), frame_ref_(frame) {}
 
-    Eigen::Vector2d pos() const {
+    const Eigen::Vector2d& getPos() const {
         return pos_;
+    }
+
+    void setPointRef(Point3d *p3) {
+        point_ref_ = p3;
+    }
+
+    Point3d* getPointRef() const {
+        return point_ref_;
     }
 
 };

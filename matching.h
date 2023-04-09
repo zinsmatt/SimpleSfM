@@ -5,6 +5,14 @@
 #include "frame.h"
 
 
+struct MatchList : public std::vector<cv::DMatch>
+{
+    typedef std::shared_ptr<MatchList> Ptr;
+    static Ptr create() {
+        return std::make_shared<MatchList>();
+    }
+};
+
 class RobustMatcher
 {
     double ratiotest_;
@@ -19,5 +27,5 @@ public:
 
     RobustMatcher(double ratiotest) : ratiotest_(ratiotest) {}
 
-    std::vector<cv::DMatch> robustMatch(Frame::Ptr frame1, Frame::Ptr frame2);
+    MatchList::Ptr robustMatch(Frame::Ptr frame1, Frame::Ptr frame2);
 };

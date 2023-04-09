@@ -39,7 +39,7 @@ void RobustMatcher::symmetryTest(const std::vector<std::vector<cv::DMatch>>& mat
 
 
 
-std::vector<cv::DMatch> RobustMatcher::robustMatch(Frame::Ptr frame1, Frame::Ptr frame2)
+MatchList::Ptr RobustMatcher::robustMatch(Frame::Ptr frame1, Frame::Ptr frame2)
 {
     std::vector<std::vector<cv::DMatch>> matches12, matches21;
     // cv::BFMatcher matcher(cv::NORM_HAMMING, false);
@@ -55,8 +55,8 @@ std::vector<cv::DMatch> RobustMatcher::robustMatch(Frame::Ptr frame1, Frame::Ptr
     // std::cout << matches21.size() << " matches after ratio test.\n";
 
     
-    std::vector<cv::DMatch> good_matches;
-    symmetryTest(matches12, matches21, good_matches);
-    std::cout << good_matches.size() << " good symmetric matches.\n";
+    auto good_matches = MatchList::create();
+    symmetryTest(matches12, matches21, *good_matches);
+    std::cout << good_matches->size() << " good symmetric matches.\n";
     return good_matches;
 }

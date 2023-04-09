@@ -10,7 +10,7 @@ class Frame
 {
     cv::Mat img_;
     Matrix34d Rt_;
-    std::shared_ptr<Intrinsics> calib_;
+    Intrinsics::Ptr calib_;
     std::vector<Feature2d::Ptr> features_;
     cv::Mat descriptors_;
     std::vector<cv::KeyPoint> keypoints_;
@@ -21,11 +21,13 @@ class Frame
 public:
     typedef std::shared_ptr<Frame> Ptr;
 
-    static Ptr create(cv::Mat img) {
-        return std::make_shared<Frame>(img);
+    static Ptr create(cv::Mat img, Intrinsics::Ptr calib) {
+        return std::make_shared<Frame>(img, calib);
     }
 
-    Frame(cv::Mat img) : img_(img) {}
+    Frame(cv::Mat img, Intrinsics::Ptr calib) : img_(img), calib_(calib) {
+        Rt_.block<3, 3>(0, 0) = Matrix3d::Identity();
+    }
 
     bool isLocalized() const {
         return localized_;
@@ -40,6 +42,14 @@ public:
         return Rt_;
     }
 
+    Matrix3d getK() const {
+        return calib_->K;
+    }
+
+    Matrix34d getP() const {
+        return calib_->K * Rt_;
+    }
+
     void detectAndDescribe(int nKps=2000);
 
 
@@ -50,7 +60,7 @@ public:
     std::vector<cv::KeyPoint> getcvKeypoints() const {
         std::vector<cv::KeyPoint> kps(features_.size());
         for (int i = 0; i < kps.size(); ++i) {
-            kps[i] = cv::KeyPoint(eigen2cvpoint(features_[i]->pos()), 1.0);
+            kps[i] = cv::KeyPoint(eigen2cvpoint(features_[i]->getPos()), 1.0);
         }
         return kps;
     }
@@ -58,7 +68,7 @@ public:
     std::vector<cv::Point2d> getcvPoints() const {
         std::vector<cv::Point2d> pts(features_.size());
         for (int i = 0; i < pts.size(); ++i) {
-            pts[i] = eigen2cvpoint(features_[i]->pos());
+            pts[i] = eigen2cvpoint(features_[i]->getPos());
         }
         return pts;
     }
@@ -66,9 +76,13 @@ public:
     std::vector<Vector2d> getFeaturePoints() const {
         std::vector<Vector2d> pts(features_.size());
         for (int i = 0; i < pts.size(); ++i) {
-            pts[i] = features_[i]->pos();
+            pts[i] = features_[i]->getPos();
         }
         return pts;
+    }
+
+    std::vector<Feature2d::Ptr>& getFeatures() {
+        return features_;
     }
 
     cv::Mat getImg() {
