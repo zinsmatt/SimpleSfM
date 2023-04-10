@@ -3,6 +3,9 @@
 #include <opencv2/features2d.hpp>
 #include <opencv2/xfeatures2d.hpp>
 
+#include "io.h"
+
+
 void Frame::detectAndDescribe(int nKps)
 {
     double scaleFactor = 1.5;
@@ -18,4 +21,17 @@ void Frame::detectAndDescribe(int nKps)
         keypoints_.push_back(kps[i]);
     }
     descriptors_ = desc.rowRange(0, std::min((int)kps.size(), nKps));
+}
+
+
+
+
+
+
+
+std::string Frame::serializeToOBJ(double size, int n_points)
+{
+    Matrix3d orientation = Rt_.block<3, 3>(0, 0).transpose();
+    Vector3d position = -orientation * Rt_.col(3);
+    return serializeTriaxeOBJ(orientation, position, size, n_points);
 }

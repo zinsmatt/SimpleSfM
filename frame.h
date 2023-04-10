@@ -39,6 +39,9 @@ public:
     }
 
     Matrix34d getRt() const {
+        if (!localized_) {
+            std::cerr << "Warning !! the frame has not been localized yet." << std::endl;
+        }
         return Rt_;
     }
 
@@ -85,8 +88,14 @@ public:
         return features_;
     }
 
+    Feature2d::Ptr getFeature(int idx) {
+        return features_[idx];
+    }
+
     cv::Mat getImg() {
         return img_;
     }
+
+    std::string serializeToOBJ(double size, int n_points);
 
 };

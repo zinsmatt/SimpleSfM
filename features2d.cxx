@@ -4,6 +4,8 @@
 #include <opencv2/xfeatures2d.hpp>
 
 
+#include "point3d.h"
+
 
  std::string ImageDescriptor::serialize() const
  {
@@ -69,4 +71,9 @@ void ImageDescriptor::computeNormalizedKeypoints(const Eigen::Matrix3d& K) {
         keypoints_norm[i][1] = (keypoints[i].pt.y - cy) / fy;
         keypoints_norm[i][2] = 1.0;
     }
+}
+
+void Feature2d::setPointRef(Point3d *p3) {
+    point_ref_ = p3;
+    p3->addObservation(this);
 }

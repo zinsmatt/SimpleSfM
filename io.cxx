@@ -2,6 +2,7 @@
 
 #include <fstream>
 
+
 void saveImageDescriptors(const std::string filename, const std::vector<ImageDescriptor::Ptr>& descriptors) {
     std::ofstream of(filename);
     of << descriptors.size() << "\n";
@@ -71,6 +72,14 @@ std::string serializeTriaxeOBJ(const Eigen::Matrix3d &orientation, const Eigen::
     return ss.str();
 }
 
+
+void saveCamerasOBJ(const std::string& filename, const std::vector<Frame::Ptr> &frames, double size, int n_points) {
+    std::ofstream fout(filename);
+    for (auto frame : frames) {
+        fout << frame->serializeToOBJ(size, n_points);
+    }
+    fout.close();
+}
 
 void writeTriaxeOBJ(const std::string& filename, const std::vector<Eigen::Matrix3d> &orientations,
                     const std::vector<Eigen::Vector3d> &positions, double size, double nPoints)

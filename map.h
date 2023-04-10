@@ -13,11 +13,25 @@ public:
         return points_.back().get();
     }
 
-    void saveMap(const std::string filename) {
+    void saveOBJ(const std::string filename) {
         std::vector<Vector3d> pts(points_.size());
         for (int i = 0; i < pts.size(); ++i) {
             pts[i] = points_[i]->getPos();
         }
         writeOBJ(filename, pts);
+    }
+
+    void analyze() const {
+        for (auto p : points_) {
+            std::cout << "Point " << p->getPos().transpose() << " has " << p->getObservations().size() << "\n";
+        }
+    }
+
+    Point3d::Ptr getPoint(int idx) {
+        return points_[idx];
+    }
+
+    size_t size() const {
+        return points_.size();
     }
 };

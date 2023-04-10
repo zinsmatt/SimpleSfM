@@ -62,9 +62,7 @@ public:
         return pos_;
     }
 
-    void setPointRef(Point3d *p3) {
-        point_ref_ = p3;
-    }
+    void setPointRef(Point3d *p3);
 
     Point3d* getPointRef() const {
         return point_ref_;

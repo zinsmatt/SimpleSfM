@@ -1,6 +1,10 @@
 #pragma once
 
+#include <vector>
+
+#include "frame.h"
 #include "features2d.h"
+
 
 void saveImageDescriptors(const std::string filename, const std::vector<ImageDescriptor::Ptr>& descriptors);
 
@@ -15,3 +19,6 @@ void writeTriaxeOBJ(const std::string& filename, const std::vector<Eigen::Matrix
 
 
 void writeOBJ(const std::string& filename, const std::vector<Eigen::Vector3d>& points);
+
+
+void saveCamerasOBJ(const std::string& filename, const std::vector<Frame::Ptr> &frames, double size, int n_points);

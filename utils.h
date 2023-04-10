@@ -5,6 +5,7 @@
 
 using Matrix34d = Eigen::Matrix<double, 3, 4>;
 using Matrix3d = Eigen::Matrix3d;
+using Matrix2d = Eigen::Matrix2d;
 using Vector3d = Eigen::Vector3d;
 using Vector2d = Eigen::Vector2d;
 
@@ -16,6 +17,9 @@ inline cv::Point2d eigen2cvpoint(const Vector2d& pt) {
     return cv::Point2d(pt.x(), pt.y());
 }
 
+inline cv::Point3d eigen2cvpoint(const Vector3d& pt) {
+    return cv::Point3d(pt.x(), pt.y(), pt.z());
+}
 
 template <class T, int R, int C>
 Eigen::Matrix<T, R, C> cv2eigen(cv::Mat M) {
